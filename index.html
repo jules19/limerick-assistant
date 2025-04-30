@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limerick Assistant Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Apply Inter font globally */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style for the A lines in the editor */
+        .line-a {
+            background-color: #e0f2fe; /* Light blue */
+        }
+        /* Style for the B lines in the editor */
+        .line-b {
+            background-color: #fef9c3; /* Light yellow */
+        }
+        /* Simple message box style */
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border-radius: 8px;
+            display: none; /* Hidden by default */
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.3s ease-in-out;
+        }
+        /* Style for syllable count display */
+        .syllable-count {
+            font-size: 0.8rem;
+            color: #6b7280; /* gray-500 */
+            margin-left: 8px;
+            font-weight: 500;
+            min-width: 60px; /* Ensure space for "Syll: XX" */
+            text-align: right;
+        }
+        /* Style for rhyme results list (manual finder) */
+        #rhyme-results ul {
+            list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        #rhyme-results li {
+            background-color: #e5e7eb; color: #374151; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem;
+        }
+        #rhyme-results .no-results { color: #6b7280; }
+
+        /* Style for automatic rhyme hints */
+        .rhyme-hints {
+            font-size: 0.8rem;
+            margin-top: 4px; /* Space below the input */
+            margin-left: 10px; /* Indent slightly */
+            color: #4b5563; /* gray-600 */
+            min-height: 20px; /* Reserve space even when empty */
+            max-height: 60px; /* Limit height */
+            overflow-y: auto; /* Add scroll if needed */
+        }
+        .rhyme-hints span {
+            display: inline-block;
+            background-color: #d1fae5; /* light green */
+            color: #065f46; /* dark green */
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-right: 5px;
+            margin-bottom: 3px;
+            cursor: pointer; /* Indicate they are clickable */
+            transition: background-color 0.2s;
+        }
+         .rhyme-hints span:hover {
+             background-color: #a7f3d0; /* lighter green on hover */
+         }
+        .rhyme-hints .loading, .rhyme-hints .no-hints {
+             font-style: italic;
+             color: #6b7280;
+         }
+
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800">Limerick Assistant</h1>
+            <p class="text-gray-600">Your helper for crafting witty rhymes!</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <main class="md:col-span-2 space-y-6">
+
+                <section class="bg-white p-6 rounded-lg border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700">Write Your Limerick</h2>
+                    <div class="space-y-1"> <div>
+                            <div class="flex items-center">
+                                <input type="text" id="line1" placeholder="Line 1 (rhymes with 2 & 5)" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent line-a">
+                                <span id="line1-syllables" class="syllable-count">Syll: 0</span>
+                            </div>
+                            <div id="a-rhyme-hints" class="rhyme-hints"></div>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="text" id="line2" placeholder="Line 2 (rhymes with 1 & 5)" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent line-a">
+                             <span id="line2-syllables" class="syllable-count">Syll: 0</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center">
+                                <input type="text" id="line3" placeholder="Line 3 (rhymes with 4)" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent line-b">
+                                <span id="line3-syllables" class="syllable-count">Syll: 0</span>
+                            </div>
+                             <div id="b-rhyme-hints" class="rhyme-hints"></div>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="text" id="line4" placeholder="Line 4 (rhymes with 3)" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent line-b">
+                             <span id="line4-syllables" class="syllable-count">Syll: 0</span>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="text" id="line5" placeholder="Line 5 (rhymes with 1 & 2)" class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent line-a">
+                             <span id="line5-syllables" class="syllable-count">Syll: 0</span>
+                        </div>
+                    </div>
+                     <p class="text-sm text-gray-500 mt-3">Tip: Lines 1, 2, 5 usually have 8-9 syllables. Lines 3, 4 usually have 5-6 syllables. (Counts are estimates)</p>
+                </section>
+
+                <section class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-700">Rhyme Finder (Manual)</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="rhyme-input" placeholder="Enter a word" class="flex-grow p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <button id="find-rhymes-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out">Find</button>
+                        </div>
+                        <div id="rhyme-results" class="mt-3 text-sm h-24 overflow-y-auto p-2 bg-gray-50 rounded-md border border-gray-200">
+                            <span class="no-results">Rhymes will appear here...</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-semibold mb-3 text-gray-700">Syllable Counter (Any Text)</h3>
+                         <div class="flex space-x-2">
+                            <input type="text" id="syllable-input" placeholder="Enter text to count" class="flex-grow p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
+                            <button id="count-syllables-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-md transition duration-150 ease-in-out">Count</button>
+                        </div>
+                        <div id="syllable-results-display" class="mt-3 text-sm text-gray-600 h-16 flex items-center justify-center p-2 bg-gray-50 rounded-md border border-gray-200">
+                            Syllable count: 0
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+
+            <aside class="md:col-span-1 space-y-6">
+                <section class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                    <h2 class="text-xl font-semibold mb-3 text-blue-800">Limerick Rules</h2>
+                    <ul class="list-disc list-inside space-y-1 text-blue-700">
+                        <li>Five lines long.</li>
+                        <li>Lines 1, 2, 5 rhyme (A) & have ~8-9 syllables.</li>
+                        <li>Lines 3, 4 rhyme (B) & have ~5-6 syllables.</li>
+                        <li>Follows a specific rhythm (often anapestic).</li>
+                        <li>Usually humorous or nonsensical.</li>
+                    </ul>
+                     <p class="text-sm text-blue-600 mt-3">Common opening: "There once was a..."</p>
+                </section>
+                <section class="bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+                    <h2 class="text-xl font-semibold mb-3 text-yellow-800">Example Limerick</h2>
+                    <blockquote class="text-yellow-700 italic pl-4 border-l-4 border-yellow-300">
+                        There once was a man from Nantucket<br>
+                        Who kept all his cash in a bucket.<br>
+                        But his daughter, named Nan,<br>
+                        Ran away with a man,<br>
+                        And as for the bucket, Nantucket.
+                    </blockquote>
+                    <p class="text-xs text-yellow-600 mt-2">- Anonymous</p>
+                </section>
+            </aside>
+        </div>
+
+        <footer class="mt-12 text-center text-sm text-gray-500">
+            <p>Limerick Assistant Prototype &copy; 2025</p>
+        </footer>
+    </div>
+
+    <div id="message-box"></div>
+
+    <script>
+        // --- Utility Functions ---
+
+        /**
+         * Simple syllable counting estimation.
+         * @param {string} text - The text to count syllables in.
+         * @returns {number} - Estimated syllable count.
+         */
+        function countSyllables(text) {
+            text = text.toLowerCase().trim();
+            if (text === "") return 0;
+            if (text.length <= 3 && text.match(/[aeiouy]/)) return 1;
+            if (text.length <= 3) return 0;
+
+            text = text.replace(/[^a-z\s]/g, '');
+            let syllableCount = 0;
+            const words = text.split(/\s+/).filter(word => word.length > 0);
+
+            words.forEach(word => {
+                let wordSyllables = 0;
+                word = word.replace(/(?:[^laeiouy]es|ed)$/, '');
+                if (word.endsWith('e') && !word.endsWith('le') && word.slice(0, -1).match(/[aeiouy]/)) {
+                    word = word.slice(0, -1);
+                }
+                word = word.replace(/^y/, '');
+                const vowelGroups = word.match(/[aeiouy]+/g);
+                wordSyllables = vowelGroups ? vowelGroups.length : 0;
+                if (word.length > 0 && wordSyllables === 0 && word.match(/[aeiouy]/)) {
+                    wordSyllables = 1;
+                } else if (word.length > 0 && wordSyllables === 0 && !word.match(/[aeiouy]/)) {
+                     wordSyllables = 0;
+                }
+                if (word.match(/(eo|io|ia|iu|[^t]iou)/)) wordSyllables++;
+                if (word.match(/^(.*[^aeiouy])iou/)) wordSyllables++;
+                if (word.endsWith('ism')) wordSyllables++;
+                if (word.endsWith('ty') && word.length > 4) wordSyllables++;
+                syllableCount += Math.max(1, wordSyllables);
+            });
+            return syllableCount;
+        }
+
+        /**
+         * Displays a temporary message at the bottom of the screen.
+         * @param {string} message - The message to display.
+         */
+        function showMessage(message) {
+            messageBox.textContent = message;
+            messageBox.style.opacity = '1';
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                 messageBox.style.opacity = '0';
+                 setTimeout(() => { messageBox.style.display = 'none'; }, 300);
+            }, 3000);
+        }
+
+        /**
+         * Extracts the last word from a string.
+         * @param {string} text - The input string.
+         * @returns {string|null} - The last word, or null if no word is found.
+         */
+        function getLastWord(text) {
+            const cleanedText = text.trim().replace(/[.,!?;:]$/, ''); // Remove trailing punctuation
+            const words = cleanedText.split(/\s+/);
+            return words.length > 0 ? words[words.length - 1] : null;
+        }
+
+        // --- Get References ---
+        const lineInputs = [
+            document.getElementById('line1'), document.getElementById('line2'),
+            document.getElementById('line3'), document.getElementById('line4'),
+            document.getElementById('line5')
+        ];
+        const syllableSpans = [
+            document.getElementById('line1-syllables'), document.getElementById('line2-syllables'),
+            document.getElementById('line3-syllables'), document.getElementById('line4-syllables'),
+            document.getElementById('line5-syllables')
+        ];
+        const findRhymesBtn = document.getElementById('find-rhymes-btn');
+        const rhymeInput = document.getElementById('rhyme-input');
+        const rhymeResultsDiv = document.getElementById('rhyme-results');
+        const countSyllablesBtn = document.getElementById('count-syllables-btn');
+        const syllableInput = document.getElementById('syllable-input');
+        const syllableResultsDisplay = document.getElementById('syllable-results-display');
+        const messageBox = document.getElementById('message-box');
+        const aRhymeHintsDiv = document.getElementById('a-rhyme-hints'); // Hint area for A rhymes
+        const bRhymeHintsDiv = document.getElementById('b-rhyme-hints'); // Hint area for B rhymes
+
+        // --- Event Listeners for Line Inputs (Syllable Count) ---
+        lineInputs.forEach((input, index) => {
+            input.addEventListener('input', () => {
+                const text = input.value;
+                const count = countSyllables(text);
+                syllableSpans[index].textContent = `Syll: ${count}`;
+
+                // Clear relevant hints when typing starts in source line
+                if (input.id === 'line1') {
+                    aRhymeHintsDiv.innerHTML = '';
+                } else if (input.id === 'line3') {
+                    bRhymeHintsDiv.innerHTML = '';
+                }
+            });
+        });
+
+        // --- Manual Rhyme Finder ---
+
+        /**
+         * Displays rhymes in the manual rhyme finder tool.
+         * @param {Array} rhymes - Array of rhyme objects from Datamuse API.
+         */
+        function displayManualRhymes(rhymes) {
+            rhymeResultsDiv.innerHTML = ''; // Clear previous results
+            if (rhymes && rhymes.length > 0) {
+                const ul = document.createElement('ul');
+                // Limit the number of rhymes displayed if desired
+                rhymes.slice(0, 20).forEach(rhyme => {
+                    const li = document.createElement('li');
+                    li.textContent = rhyme.word;
+                    ul.appendChild(li);
+                });
+                rhymeResultsDiv.appendChild(ul);
+            } else {
+                rhymeResultsDiv.innerHTML = '<span class="no-results">No rhymes found.</span>';
+            }
+        }
+
+        findRhymesBtn.addEventListener('click', () => {
+            const word = rhymeInput.value.trim();
+            if (word) {
+                rhymeResultsDiv.innerHTML = '<span class="no-results">Finding rhymes...</span>';
+                const apiUrl = `https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(word)}&max=50`; // Fetch up to 50
+
+                fetch(apiUrl)
+                    .then(response => response.ok ? response.json() : Promise.reject(`HTTP error! status: ${response.status}`))
+                    .then(data => {
+                        displayManualRhymes(data);
+                        showMessage(`Rhymes found for "${word}".`);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching manual rhymes:', error);
+                        rhymeResultsDiv.innerHTML = '<span class="no-results">Error finding rhymes.</span>';
+                        showMessage(`Error finding rhymes for "${word}".`);
+                    });
+            } else {
+                showMessage('Please enter a word to find rhymes.');
+                rhymeResultsDiv.innerHTML = '<span class="no-results">Please enter a word above.</span>';
+            }
+        });
+
+        // --- Automatic Rhyme Hinting ---
+
+        /**
+         * Displays rhyme hints below the relevant input line.
+         * @param {Array} hints - Array of rhyme objects from Datamuse API.
+         * @param {HTMLElement} targetElement - The div element to display hints in.
+         */
+        function displayRhymeHints(hints, targetElement) {
+            targetElement.innerHTML = ''; // Clear previous hints
+            if (hints && hints.length > 0) {
+                 // Limit hints displayed for brevity
+                hints.slice(0, 15).forEach(hint => {
+                    const span = document.createElement('span');
+                    span.textContent = hint.word;
+                    span.title = `Click to insert "${hint.word}"`; // Tooltip
+                    // Add click listener to insert the hint into the next relevant line
+                    span.addEventListener('click', () => insertHint(hint.word, targetElement));
+                    targetElement.appendChild(span);
+                });
+            } else {
+                targetElement.innerHTML = '<span class="no-hints">No hints found.</span>';
+            }
+        }
+
+        /**
+         * Inserts a clicked hint word into the appropriate next line's input.
+         * @param {string} hintWord - The word to insert.
+         * @param {HTMLElement} hintSourceElement - The hint container (a-rhyme-hints or b-rhyme-hints).
+         */
+        function insertHint(hintWord, hintSourceElement) {
+            let targetInput = null;
+            if (hintSourceElement.id === 'a-rhyme-hints') {
+                // Try inserting into line 2 first if empty, otherwise line 5
+                if (lineInputs[1].value.trim() === '') {
+                    targetInput = lineInputs[1]; // Line 2
+                } else {
+                     targetInput = lineInputs[4]; // Line 5
+                }
+            } else if (hintSourceElement.id === 'b-rhyme-hints') {
+                 targetInput = lineInputs[3]; // Line 4
+            }
+
+            if (targetInput) {
+                // Append the hint word (or replace if needed)
+                // Simple append:
+                targetInput.value = targetInput.value.trim() + (targetInput.value.trim() ? ' ' : '') + hintWord;
+                // Trigger input event to update syllable count
+                targetInput.dispatchEvent(new Event('input'));
+                targetInput.focus(); // Focus the input after inserting
+                showMessage(`Inserted "${hintWord}"`);
+            }
+        }
+
+
+        /**
+         * Fetches rhymes from Datamuse API for a given word.
+         * @param {string} word - The word to find rhymes for.
+         * @param {HTMLElement} targetHintDiv - The div where hints should be displayed.
+         */
+        function fetchAndDisplayHints(word, targetHintDiv) {
+            if (!word) {
+                targetHintDiv.innerHTML = ''; // Clear if no word
+                return;
+            }
+
+            targetHintDiv.innerHTML = '<span class="loading">Finding hints...</span>'; // Loading state
+            const apiUrl = `https://api.datamuse.com/words?rel_rhy=${encodeURIComponent(word)}&max=30`; // Fetch up to 30 hints
+
+            fetch(apiUrl)
+                .then(response => response.ok ? response.json() : Promise.reject(`HTTP error! status: ${response.status}`))
+                .then(data => {
+                    displayRhymeHints(data, targetHintDiv);
+                })
+                .catch(error => {
+                    console.error('Error fetching rhyme hints:', error);
+                    targetHintDiv.innerHTML = '<span class="no-hints">Error finding hints.</span>';
+                });
+        }
+
+        // Add 'blur' listeners to trigger hint fetching
+        lineInputs[0].addEventListener('blur', () => { // Line 1 blur
+            const lastWord = getLastWord(lineInputs[0].value);
+            fetchAndDisplayHints(lastWord, aRhymeHintsDiv);
+        });
+
+        lineInputs[2].addEventListener('blur', () => { // Line 3 blur
+            const lastWord = getLastWord(lineInputs[2].value);
+            fetchAndDisplayHints(lastWord, bRhymeHintsDiv);
+        });
+
+
+        // --- General Syllable Counter ---
+        countSyllablesBtn.addEventListener('click', () => {
+            const text = syllableInput.value.trim();
+             if (text) {
+                const count = countSyllables(text);
+                syllableResultsDisplay.textContent = `Syllable count: ${count} (Estimate)`;
+                 showMessage(`Syllable count estimated for "${text}".`);
+            } else {
+                 showMessage('Please enter text to count syllables.');
+                 syllableResultsDisplay.textContent = 'Syllable count: 0';
+            }
+        });
+
+        // --- Optional: Allow Enter key press for manual tools ---
+        rhymeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                findRhymesBtn.click();
+            }
+        });
+
+        syllableInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                countSyllablesBtn.click();
+            }
+        });
+
+    </script>
+
+</body>
+</html>
